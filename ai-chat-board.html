@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="ur">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Rana AI OS — AI Chat Board</title>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+    </style>
+    <style>
+      :root {
+        --bg: #f6f4ef;
+        --surface: #fffdf9;
+        --surface-2: #efeae1;
+        --ink: #1d1a16;
+        --ink-soft: #57504a;
+        --ink-faint: #8a8178;
+        --line: #ddd5c8;
+        --accent: #0e6b5c;
+        --accent-ink: #ffffff;
+        --user-bubble: #20312c;
+        --user-ink: #f2efe9;
+        --danger: #b3261e;
+        --track: #e3ddd0;
+        --shadow: 0 1px 2px rgba(29, 26, 22, .06), 0 8px 24px rgba(29, 26, 22, .06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16140f;
+          --surface: #201d17;
+          --surface-2: #2a271e;
+          --ink: #ece7dd;
+          --ink-soft: #b6ad9f;
+          --ink-faint: #857c6e;
+          --line: #3a352a;
+          --accent: #2fae97;
+          --accent-ink: #0c1714;
+          --user-bubble: #dcebe5;
+          --user-ink: #16211d;
+          --danger: #f2b8b5;
+          --track: #38332a;
+          --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans", sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+
+      /* ---------- status strip ---------- */
+      .strip {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        flex-wrap: wrap;
+        padding: .5rem .9rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+        font-size: .8rem;
+        color: var(--ink-soft);
+      }
+      .brand { font-weight: 700; color: var(--ink); font-size: .88rem; letter-spacing: -.01em; white-space: nowrap; }
+      .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--ink-faint); flex: 0 0 auto; }
+      .dot.on { background: var(--accent); }
+      .dot.err { background: var(--danger); }
+      .strip .spacer { flex: 1 1 auto; }
+      .quota {
+        display: inline-flex; align-items: center; gap: .35rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: .18rem .6rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .quota b { color: var(--ink); font-weight: 650; }
+      .quota.full b { color: var(--danger); }
+
+      .banner {
+        flex: 0 0 auto;
+        display: none;
+        padding: .6rem .9rem;
+        font-size: .85rem;
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--line);
+        color: var(--danger);
+      }
+      .banner.show { display: block; }
+
+      /* ---------- chat scroll area ---------- */
+      .scroll {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      .thread {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.1rem .9rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.05rem;
+      }
+
+      .empty {
+        margin: auto;
+        max-width: 30rem;
+        text-align: center;
+        padding: 2.2rem 1rem;
+        color: var(--ink-soft);
+      }
+      .empty h1 { font-size: 1.35rem; margin: 0 0 .5rem; color: var(--ink); font-weight: 650; letter-spacing: -.01em; }
+      .empty p { margin: 0 0 1.1rem; line-height: 1.55; font-size: .95rem; }
+      .chips { display: flex; flex-direction: column; gap: .5rem; align-items: stretch; }
+      .chip {
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: .8rem;
+        padding: .65rem .85rem;
+        font-size: .92rem;
+        color: var(--ink);
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .chip:active { background: var(--surface-2); }
+      .chip small { display: block; color: var(--ink-faint); font-size: .78rem; margin-top: .15rem; }
+
+      /* ---------- messages ---------- */
+      .msg { display: flex; flex-direction: column; max-width: 100%; }
+      .msg.user { align-items: flex-end; }
+      .msg.assistant { align-items: flex-start; }
+      .who {
+        display: flex; align-items: center; gap: .45rem;
+        font-size: .74rem; color: var(--ink-faint);
+        margin: 0 .2rem .3rem;
+        letter-spacing: .02em;
+      }
+      .avatar {
+        width: 1.35rem; height: 1.35rem; border-radius: 50%;
+        background: var(--accent); color: var(--accent-ink);
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto;
+      }
+      .avatar svg { width: .8rem; height: .8rem; }
+      .bubble {
+        border-radius: 1.05rem;
+        padding: .65rem .9rem;
+        line-height: 1.55;
+        font-size: .97rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-width: min(88%, 34rem);
+      }
+      .msg.user .bubble {
+        background: var(--user-bubble);
+        color: var(--user-ink);
+        border-bottom-right-radius: .3rem;
+      }
+      .msg.assistant .bubble {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-bottom-left-radius: .3rem;
+        box-shadow: var(--shadow);
+      }
+      .meta {
+        font-size: .72rem; color: var(--ink-faint);
+        margin: .3rem .25rem 0;
+        display: flex; gap: .5rem; align-items: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .msg.user .meta { flex-direction: row-reverse; }
+      .kind-tag {
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        border-radius: 999px;
+        padding: 0 .45rem;
+        font-size: .68rem;
+        line-height: 1.5;
+      }
+      .media { margin-top: .55rem; }
+      .media img, .media video {
+        display: block;
+        max-width: 100%;
+        width: 100%;
+        border-radius: .7rem;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+      }
+      .media a.dl {
+        display: inline-flex; align-items: center; gap: .35rem;
+        margin-top: .45rem;
+        min-height: 2.25rem;
+        padding: .3rem .2rem;
+        color: var(--accent);
+        font-size: .85rem;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      /* ---------- progress / working ---------- */
+      .work { width: min(88%, 34rem); }
+      .work .bubble { max-width: 100%; width: 100%; }
+      .work-label { display: flex; justify-content: space-between; gap: .8rem; font-size: .88rem; }
+      .work-label .pct { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); white-space: nowrap; }
+      .track {
+        height: .5rem; border-radius: 999px; background: var(--track);
+        overflow: hidden; margin-top: .55rem;
+      }
+      .fill {
+        height: 100%; border-radius: 999px; background: var(--accent);
+        transition: width .6s ease;
+      }
+      .track.indet .fill {
+        width: 38% !important;
+        animation: slide 1.4s ease-in-out infinite alternate;
+      }
+      @keyframes slide { from { margin-left: 0; } to { margin-left: 62%; } }
+      .dots::after {
+        content: ""; animation: dots 1.4s steps(4) infinite;
+      }
+      @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+      @media (prefers-reduced-motion: reduce) {
+        .track.indet .fill, .dots::after { animation: none; }
+        .fill { transition: none; }
+      }
+
+      /* ---------- composer ---------- */
+      .composer-wrap {
+        flex: 0 0 auto;
+        background: var(--bg);
+        border-top: 1px solid var(--line);
+        padding: .6rem .9rem calc(.6rem + env(safe-area-inset-bottom));
+      }
+      .notice {
+        max-width: 46rem; margin: 0 auto .5rem;
+        display: none;
+        font-size: .83rem; color: var(--danger);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: .7rem;
+        padding: .5rem .75rem;
+      }
+      .notice.show { display: block; }
+      .composer {
+        max-width: 46rem; margin: 0 auto;
+        display: flex; align-items: flex-end; gap: .5rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 1.2rem;
+        padding: .4rem .4rem .4rem .95rem;
+        box-shadow: var(--shadow);
+      }
+      .composer textarea {
+        flex: 1 1 auto;
+        border: 0; outline: 0; resize: none;
+        background: transparent; color: var(--ink);
+        font: inherit; font-size: 1rem; line-height: 1.45;
+        max-height: 8.5rem;
+        padding: .45rem 0;
+      }
+      .composer textarea::placeholder { color: var(--ink-faint); }
+      .send {
+        flex: 0 0 auto;
+        width: 2.6rem; height: 2.6rem;
+        border-radius: 50%;
+        border: 0;
+        background: var(--accent); color: var(--accent-ink);
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer;
+      }
+      .send svg { width: 1.15rem; height: 1.15rem; }
+      .send:disabled { opacity: .45; cursor: default; }
+      .hint {
+        max-width: 46rem; margin: .45rem auto 0;
+        font-size: .74rem; color: var(--ink-faint); text-align: center;
+      }
+
+      /* ---------- mode toggle + history bar ---------- */
+      .mode-toggle {
+        display: inline-flex;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: .15rem;
+        gap: .15rem;
+      }
+      .mode-toggle button {
+        border: 0; background: transparent; color: var(--ink-soft);
+        font: inherit; font-size: .78rem; font-weight: 650;
+        border-radius: 999px; padding: .2rem .65rem; cursor: pointer;
+        min-height: 2rem; white-space: nowrap;
+      }
+      .mode-toggle button[aria-pressed="true"] {
+        background: var(--accent); color: var(--accent-ink);
+      }
+      .mode-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .histbar {
+        flex: 0 0 auto;
+        display: none;
+        padding: .4rem .9rem;
+        font-size: .76rem;
+        color: var(--ink-faint);
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+        text-align: center;
+      }
+      .histbar.show { display: block; }
+      .typing-dots { display: inline-flex; gap: .28rem; align-items: center; margin-left: .5rem; vertical-align: middle; }
+      .typing-dots i {
+        width: .42rem; height: .42rem; border-radius: 50%;
+        background: var(--accent); display: inline-block;
+        animation: tblink 1.1s ease-in-out infinite;
+      }
+      .typing-dots i:nth-child(2) { animation-delay: .18s; }
+      .typing-dots i:nth-child(3) { animation-delay: .36s; }
+      @keyframes tblink { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+      @media (prefers-reduced-motion: reduce) {
+        .typing-dots i { animation: none; opacity: .7; }
+      }
+
+      /* ---------- login gate ---------- */
+      .gate {
+        position: fixed; inset: 0; z-index: 60;
+        background: var(--bg);
+        display: flex; align-items: center; justify-content: center;
+        padding: 1.1rem .9rem calc(1.1rem + env(safe-area-inset-bottom));
+        overflow-y: auto;
+      }
+      .gate[hidden] { display: none; }
+      .gate-card {
+        width: 100%; max-width: 24rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        box-shadow: var(--shadow);
+        padding: 1.4rem 1.25rem 1.25rem;
+      }
+      .gate-brand {
+        display: flex; align-items: center; gap: .5rem;
+        font-weight: 700; font-size: .9rem; color: var(--ink);
+        margin-bottom: 1rem;
+      }
+      .gate-brand .avatar { width: 1.7rem; height: 1.7rem; }
+      .gate-brand .avatar svg { width: 1rem; height: 1rem; }
+      .gate-card h1 { font-size: 1.28rem; line-height: 1.25; margin: 0 0 .4rem; font-weight: 650; letter-spacing: -.01em; }
+      .gate-card .gate-sub { margin: 0 0 1.1rem; color: var(--ink-soft); font-size: .92rem; line-height: 1.55; }
+      .field { margin-bottom: .85rem; }
+      .field label { display: block; font-size: .83rem; font-weight: 600; color: var(--ink); margin-bottom: .35rem; }
+      .field input {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--ink);
+        border-radius: .7rem;
+        padding: .62rem .8rem;
+        font: inherit; font-size: 1rem;
+        outline: none;
+      }
+      .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+      .pw-wrap { position: relative; }
+      .pw-wrap input { padding-right: 5.6rem; }
+      .eye-btn {
+        position: absolute; right: .3rem; top: 50%; transform: translateY(-50%);
+        display: inline-flex; align-items: center; gap: .35rem;
+        border: 0; background: transparent; color: var(--accent);
+        font: inherit; font-size: .82rem; font-weight: 650;
+        border-radius: .55rem; padding: .3rem .5rem; cursor: pointer;
+        min-height: 2.25rem;
+      }
+      .eye-btn svg { width: 1.15rem; height: 1.15rem; flex: 0 0 auto; }
+      .eye-btn:active { background: var(--surface-2); }
+      .gate-error {
+        display: none;
+        font-size: .85rem; color: var(--danger);
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: .7rem;
+        padding: .55rem .75rem;
+        margin: 0 0 .85rem;
+        line-height: 1.45;
+      }
+      .gate-error.show { display: block; }
+      .gate-submit {
+        width: 100%;
+        border: 0; border-radius: .8rem;
+        background: var(--accent); color: var(--accent-ink);
+        font: inherit; font-size: 1rem; font-weight: 650;
+        padding: .7rem 1rem; cursor: pointer;
+        min-height: 2.9rem;
+      }
+      .gate-submit:disabled { opacity: .55; cursor: default; }
+    </style>
+  </head>
+  <body>
+
+    <div class="gate" id="gate">
+      <div class="gate-card">
+        <div class="gate-brand"><span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"/><path d="M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z"/></svg></span><span>Rana AI OS</span></div>
+        <h1>Board mein daakhil hon</h1>
+        <p class="gate-sub">Apna username aur password likhein. Password wale box mein eye wala button hai — us se aap apna type kiya hua password dekh bhi sakte hain.</p>
+        <form id="gateForm" novalidate>
+          <div class="field">
+            <label for="gateUser">Username</label>
+            <input id="gateUser" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username likhein" />
+          </div>
+          <div class="field">
+            <label for="gatePass">Password</label>
+            <div class="pw-wrap">
+              <input id="gatePass" name="password" type="password" autocomplete="current-password" placeholder="Password likhein" />
+              <button class="eye-btn" id="eyeBtn" type="button" aria-label="Password dikhayein" aria-pressed="false">
+                <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span id="eyeLabel">Show</span>
+              </button>
+            </div>
+          </div>
+          <p class="gate-error" id="gateError" role="alert"></p>
+          <button class="gate-submit" id="gateSubmit" type="submit">Daakhil hon</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="strip" role="status">
+      <span class="brand">Rana AI OS</span>
+      <span class="dot" id="connDot" aria-hidden="true"></span>
+      <span id="connText">Connect ho raha hai…</span>
+      <span class="spacer"></span>
+      <span class="quota" id="quotaImg" title="Aaj ki images">Images <b>–/5</b></span>
+      <span class="quota" id="quotaVid" title="Aaj ki videos">Video <b>–/1</b></span>
+      <span class="mode-toggle" role="group" aria-label="Jawab ka mode">
+        <button type="button" id="modeFast" aria-pressed="true" title="Pehle short jawab, detail baad mein">Fast Mode</button>
+        <button type="button" id="modeDeep" aria-pressed="false" title="Gehri check ke saath tafseeli jawab — zyada waqt lag sakta hai">Rana Mode</button>
+      </span>
+    </div>
+    <div class="banner" id="banner" role="alert"></div>
+    <div class="histbar" id="histBar"></div>
+
+    <div class="scroll" id="scroll">
+      <div class="thread" id="thread">
+        <div class="empty" id="emptyState">
+          <h1>Assalam-o-Alaikum!</h1>
+          <p>Ye <b>Rana AI OS</b> ka chat board hai. Neeche apna message likhein — sawal poochh sakte hain, image banwa sakte hain ya video. Jawab <b>realtime</b> isi chat mein aayega — bhejte hi typing aur progress nazar aayega. <b>Fast Mode</b> default hai: pehle short jawab milta hai, detail baad mein; gehri check chahiye to upar se <b>Rana Mode</b> chunein. Image aur video mein kuch minute lag sakte hain.</p>
+          <div class="chips">
+            <button class="chip" type="button" data-fill="Mujhe ek image bana dein: ">Ek image banwayein<small>Tap karke apni pasand ki tafseel aage likh dein</small></button>
+            <button class="chip" type="button" data-fill="Mujhe ek video bana dein: ">Ek video banwayein<small>Tap karke video ki tafseel aage likh dein</small></button>
+            <button class="chip" type="button" data-fill="">Sawal poochhein<small>Composer mein apna sawal likh kar bhejein</small></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="notice" id="notice" role="alert"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Message likhein…" aria-label="Message likhein" disabled></textarea>
+        <button class="send" id="sendBtn" type="submit" aria-label="Bhejein" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        </button>
+      </form>
+      <p class="hint">Enter = bhejein · Shift+Enter = nayi line</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var LIMITS = { image: 5, video: 1 };
+        var COLLECTION = "chats";
+        var BOARD = "friend";
+        /* Realtime: koi polling nahi — Firestore onSnapshot listener hi
+           naya message aate hi foran update deta hai.
+           History: poori history Firestore mein mehfooz rehti hai, lekin
+           board sirf aakhri RECENT_LIMIT messages load karta hai aur jawab
+           ke liye summary + recent hi istemal hota hai, taake board tez rahe. */
+        var RECENT_LIMIT = 80;
+
+        var thread = document.getElementById("thread");
+        var scrollEl = document.getElementById("scroll");
+        var emptyState = document.getElementById("emptyState");
+        var input = document.getElementById("input");
+        var sendBtn = document.getElementById("sendBtn");
+        var composer = document.getElementById("composer");
+        var connDot = document.getElementById("connDot");
+        var connText = document.getElementById("connText");
+        var banner = document.getElementById("banner");
+        var notice = document.getElementById("notice");
+        var quotaImg = document.getElementById("quotaImg");
+        var quotaVid = document.getElementById("quotaVid");
+        var histBar = document.getElementById("histBar");
+        var modeFastBtn = document.getElementById("modeFast");
+        var modeDeepBtn = document.getElementById("modeDeep");
+
+        var db = null;
+        var ready = false;
+        var counts = { image: 0, video: 0 };
+        var lastRenderedCount = 0;
+        var unlocked = false;
+        /* Fast Mode default hai: pehle short jawab, deep check baad mein.
+           Rana Mode = deep wala option. Mode har message ke saath save hota hai. */
+        var currentMode = "fast";
+        var waitingTimer = null;
+        var waitingPct = 0;
+
+        var gateEl = document.getElementById("gate");
+        var gateForm = document.getElementById("gateForm");
+        var gateUser = document.getElementById("gateUser");
+        var gatePass = document.getElementById("gatePass");
+        var gateError = document.getElementById("gateError");
+        var gateSubmit = document.getElementById("gateSubmit");
+        var eyeBtn = document.getElementById("eyeBtn");
+        var eyeLabel = document.getElementById("eyeLabel");
+        var eyeIcon = document.getElementById("eyeIcon");
+
+        function showBanner(msg) {
+          banner.textContent = msg;
+          banner.classList.add("show");
+        }
+        function showNotice(msg) {
+          notice.textContent = msg;
+          notice.classList.add("show");
+          clearTimeout(showNotice._t);
+          showNotice._t = setTimeout(function () { notice.classList.remove("show"); }, 6000);
+        }
+        function setConn(state, text) {
+          connDot.className = "dot" + (state === "on" ? " on" : state === "err" ? " err" : "");
+          connText.textContent = text;
+        }
+
+        /* ---------- jawab ka mode: Fast (default) / Rana (deep) ---------- */
+        function setMode(m) {
+          currentMode = m === "deep" ? "deep" : "fast";
+          modeFastBtn.setAttribute("aria-pressed", currentMode === "fast" ? "true" : "false");
+          modeDeepBtn.setAttribute("aria-pressed", currentMode === "deep" ? "true" : "false");
+        }
+        modeFastBtn.addEventListener("click", function () { setMode("fast"); input.focus(); });
+        modeDeepBtn.addEventListener("click", function () { setMode("deep"); input.focus(); });
+
+        /* ---------- foran typing + progress (sirf screen par, koi polling nahi) ---------- */
+        function startWaitingTicker() {
+          if (waitingTimer) return; /* pehle se chal raha hai — progress wapas 0 na ho */
+          if (!waitingPct) waitingPct = 4;
+          waitingTimer = setInterval(function () {
+            var el = document.getElementById("waitingBubble");
+            if (!el) { stopWaitingTicker(); return; }
+            /* Intezaar ka andaza: asli progress assistant message se aati hai,
+               ye sirf intezaar ki nishani hai aur 90% par ruk jati hai. */
+            if (waitingPct < 90) waitingPct = Math.min(90, waitingPct + (waitingPct < 40 ? 5 : 2));
+            var pctEl = el.querySelector(".pct");
+            var fillEl = el.querySelector(".fill");
+            if (pctEl) pctEl.textContent = waitingPct + "%";
+            if (fillEl) fillEl.style.width = waitingPct + "%";
+          }, 900);
+        }
+        function stopWaitingTicker() {
+          if (waitingTimer) { clearInterval(waitingTimer); waitingTimer = null; }
+          waitingPct = 0;
+        }
+
+        /* ---------- kind detection: whole-request intent, not substrings ---------- */
+        function detectKind(text) {
+          var t = " " + text.toLowerCase() + " ";
+          var videoWords = [" video ", " videos ", " clip ", " reel ", " short video ", " movie "];
+          var imageWords = [" image ", " images ", " tasveer ", " tasaveer ", " photo ", " picture ", " poster ", " logo ", " drawing "];
+          var i;
+          for (i = 0; i < videoWords.length; i++) if (t.indexOf(videoWords[i]) !== -1) return "video";
+          for (i = 0; i < imageWords.length; i++) if (t.indexOf(imageWords[i]) !== -1) return "image";
+          return "text";
+        }
+
+        /* ---------- rendering ---------- */
+        function esc(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+        function fmtTime(ts) {
+          if (!ts) return "";
+          var d = ts.toDate ? ts.toDate() : new Date(ts);
+          var now = new Date();
+          var sameDay = d.toDateString() === now.toDateString();
+          var time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          return sameDay ? time : d.toLocaleDateString([], { day: "numeric", month: "short" }) + ", " + time;
+        }
+        function kindLabel(kind) {
+          if (kind === "image") return "Image";
+          if (kind === "video") return "Video";
+          return "";
+        }
+        var sparkSVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"/><path d="M19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z"/></svg>';
+
+        function renderMessage(m) {
+          var wrap = document.createElement("div");
+          var isUser = m.role === "user";
+          wrap.className = "msg " + (isUser ? "user" : "assistant");
+
+          if (!isUser) {
+            var who = document.createElement("div");
+            who.className = "who";
+            who.innerHTML = '<span class="avatar">' + sparkSVG + '</span><span>Rana AI OS</span>';
+            wrap.appendChild(who);
+          }
+
+          var working = !isUser && (m.status === "working" || m.status === "sending");
+          if (working) {
+            wrap.classList.add("work");
+            var wb = document.createElement("div");
+            wb.className = "bubble";
+            var hasPct = typeof m.progress === "number" && m.progress > 0;
+            var label = m.progressLabel || (m.kind === "image" ? "Image ban rahi hai" : m.kind === "video" ? "Video ban rahi hai" : "Jawab tayyar ho raha hai");
+            wb.innerHTML =
+              '<div class="work-label"><span>' + esc(label) + '<span class="dots"></span></span>' +
+              (hasPct ? '<span class="pct">' + Math.round(m.progress) + '%</span>' : '') + '</div>' +
+              '<div class="track' + (hasPct ? '' : ' indet') + '"><div class="fill" style="width:' + (hasPct ? Math.min(100, Math.max(0, m.progress)) : 38) + '%"></div></div>' +
+              (m.text ? '<div style="margin-top:.55rem">' + esc(m.text) + '</div>' : '');
+            wrap.appendChild(wb);
+          } else {
+            var b = document.createElement("div");
+            b.className = "bubble";
+            if (m.text) {
+              var t = document.createElement("div");
+              t.textContent = m.text;
+              b.appendChild(t);
+            }
+            if (!isUser && m.mediaUrl && (m.kind === "image" || m.kind === "video")) {
+              var media = document.createElement("div");
+              media.className = "media";
+              if (m.kind === "image") {
+                var img = document.createElement("img");
+                img.src = m.mediaUrl;
+                img.alt = m.text ? ("AI ki banayi image: " + m.text) : "AI ki banayi image";
+                img.loading = "lazy";
+                media.appendChild(img);
+              } else {
+                var vid = document.createElement("video");
+                vid.src = m.mediaUrl;
+                vid.controls = true;
+                vid.playsInline = true;
+                vid.preload = "metadata";
+                media.appendChild(vid);
+              }
+              var dl = document.createElement("a");
+              dl.className = "dl";
+              dl.href = m.mediaUrl;
+              dl.target = "_blank";
+              dl.rel = "noopener";
+              dl.download = "";
+              dl.textContent = "Download karein";
+              media.appendChild(dl);
+              b.appendChild(media);
+            }
+            if (!m.text && !m.mediaUrl && !isUser) {
+              b.textContent = m.status === "done" ? "(Khaali jawab)" : "…";
+            }
+            wrap.appendChild(b);
+          }
+
+          var meta = document.createElement("div");
+          meta.className = "meta";
+          var bits = [];
+          if (m.createdAt) bits.push('<span>' + esc(fmtTime(m.createdAt)) + '</span>');
+          if (isUser) {
+            if (kindLabel(m.kind)) bits.push('<span class="kind-tag">' + kindLabel(m.kind) + ' request</span>');
+            if (m.mode === "deep") bits.push('<span class="kind-tag">Rana Mode</span>');
+            else if (m.mode === "fast") bits.push('<span class="kind-tag">Fast Mode</span>');
+            bits.push('<span>' + (m.status === "sending" ? "Bhej raha hai…" : "Bhej diya ✓") + '</span>');
+          } else if (m.status === "done") {
+            bits.push('<span>Ho gaya ✓</span>');
+          }
+          meta.innerHTML = bits.join("");
+          wrap.appendChild(meta);
+          return wrap;
+        }
+
+        function renderWaiting(mode) {
+          var wrap = document.createElement("div");
+          wrap.className = "msg assistant work";
+          wrap.id = "waitingBubble";
+          var label = mode === "deep"
+            ? "Rana AI OS gehri check ke saath jawab tayyar kar raha hai"
+            : "Rana AI OS likh raha hai — Fast Mode: pehle short jawab aayega";
+          wrap.innerHTML =
+            '<div class="who"><span class="avatar">' + sparkSVG + '</span><span>Rana AI OS</span></div>' +
+            '<div class="bubble"><div class="work-label"><span>' + esc(label) +
+            '<span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>' +
+            '<span class="pct">' + waitingPct + '%</span></div>' +
+            '<div class="track"><div class="fill" style="width:' + waitingPct + '%"></div></div></div>';
+          return wrap;
+        }
+
+        function isToday(ts) {
+          if (!ts) return false;
+          var d = ts.toDate ? ts.toDate() : new Date(ts);
+          return d.toDateString() === new Date().toDateString();
+        }
+
+        function renderAll(messages) {
+          lastMessagesCache = messages;
+          counts = { image: 0, video: 0 };
+          messages.forEach(function (m) {
+            if (m.role === "user" && isToday(m.createdAt)) {
+              if (m.kind === "image") counts.image++;
+              if (m.kind === "video") counts.video++;
+            }
+          });
+          quotaImg.innerHTML = "Images <b>" + counts.image + "/" + LIMITS.image + "</b>";
+          quotaVid.innerHTML = "Video <b>" + counts.video + "/" + LIMITS.video + "</b>";
+          quotaImg.classList.toggle("full", counts.image >= LIMITS.image);
+          quotaVid.classList.toggle("full", counts.video >= LIMITS.video);
+
+          /* History summary bar: poori history Firestore mein hai,
+             screen par sirf recent — yehi summary jawab ke liye istemal hoti hai. */
+          if (messages.length > 0) {
+            histBar.textContent = "History mehfooz hai — yahan aakhri " + messages.length +
+              " messages dikh rahe hain. Jawab ke liye sirf summary aur recent messages istemal hote hain, taake jawab tez aaye.";
+            histBar.classList.add("show");
+          } else {
+            histBar.classList.remove("show");
+          }
+
+          var nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 220;
+
+          thread.innerHTML = "";
+          if (messages.length === 0) {
+            stopWaitingTicker();
+            thread.appendChild(emptyState);
+          } else {
+            messages.forEach(function (m) { thread.appendChild(renderMessage(m)); });
+            var last = messages[messages.length - 1];
+            if (last.role === "user") {
+              /* Aakhri message user ka hai: foran typing + progress dikhao */
+              if (!waitingTimer) waitingPct = 4;
+              thread.appendChild(renderWaiting(last.mode || currentMode));
+              startWaitingTicker();
+            } else {
+              stopWaitingTicker();
+            }
+          }
+          lastRenderedCount = messages.length;
+          if (nearBottom || messages.length <= 1) {
+            requestAnimationFrame(function () { scrollEl.scrollTop = scrollEl.scrollHeight; });
+          }
+        }
+
+        /* ---------- composer ---------- */
+        function autoGrow() {
+          input.style.height = "auto";
+          input.style.height = Math.min(input.scrollHeight, 136) + "px";
+        }
+        input.addEventListener("input", autoGrow);
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            composer.requestSubmit();
+          }
+        });
+        document.querySelectorAll(".chip").forEach(function (chip) {
+          chip.addEventListener("click", function () {
+            var fill = chip.getAttribute("data-fill") || "";
+            input.value = fill;
+            autoGrow();
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+          });
+        });
+
+        /* Jawab ke liye halki history summary: kul ginti + aakhri chand
+           messages ke pehle chand alfaaz. Poori history nahi bheji jati. */
+        var lastMessagesCache = [];
+        function buildHistorySummary() {
+          var total = lastMessagesCache.length;
+          if (!total) return "";
+          var recent = lastMessagesCache.slice(-6);
+          var parts = [];
+          recent.forEach(function (m) {
+            var t = String(m.text || "").replace(/\s+/g, " ").trim().slice(0, 60);
+            if (t) parts.push((m.role === "user" ? "User: " : "Rana AI OS: ") + t);
+          });
+          return "Recent " + total + " messages ka khulasa — " + parts.join(" | ");
+        }
+
+        composer.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var text = input.value.trim();
+          if (!text || !ready || !db) return;
+          var kind = detectKind(text);
+          if (kind === "image" && counts.image >= LIMITS.image) {
+            showNotice("Aaj ki image limit (" + LIMITS.image + ") poori ho gayi hai. Kal dobara koshish karein, ya text sawal bhejein.");
+            return;
+          }
+          if (kind === "video" && counts.video >= LIMITS.video) {
+            showNotice("Aaj ki video limit (" + LIMITS.video + ") poori ho gayi hai. Kal dobara koshish karein, ya text sawal bhejein.");
+            return;
+          }
+          sendBtn.disabled = true;
+          var sentMode = currentMode;
+          /* Foran typing + progress: snapshot ka intezaar kiye baghair
+             waiting bubble isi waqt dikha do. */
+          if (emptyState.parentNode === thread) thread.removeChild(emptyState);
+          if (!document.getElementById("waitingBubble")) {
+            waitingPct = 4;
+            thread.appendChild(renderWaiting(sentMode));
+            startWaitingTicker();
+          }
+          scrollEl.scrollTop = scrollEl.scrollHeight;
+          db.collection(COLLECTION).add({
+            text: text,
+            role: "user",
+            board: BOARD,
+            kind: kind,
+            mode: sentMode,
+            fastMode: sentMode === "fast",
+            historySummary: buildHistorySummary(),
+            recentCount: lastMessagesCache.length,
+            mediaUrl: "",
+            status: "sent",
+            progress: 0,
+            progressLabel: "",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).then(function () {
+            input.value = "";
+            autoGrow();
+            sendBtn.disabled = false;
+            input.focus();
+          }).catch(function (err) {
+            sendBtn.disabled = false;
+            stopWaitingTicker();
+            var wb = document.getElementById("waitingBubble");
+            if (wb && wb.parentNode) wb.parentNode.removeChild(wb);
+            showNotice("Message nahi bheja ja saka — internet check karke dobara koshish karein.");
+          });
+        });
+
+        /* ---------- login gate ---------- */
+        var EXPECTED_USER = "Rana";
+        var EXPECTED_HASH = "03aa4890d313517d56d3c9e60762bee0ddf4ba331e84f2895672dc4d00843985";
+        var EYE_OPEN = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>';
+        var EYE_SHUT = '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3.5 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>';
+
+        function setPassVisible(show) {
+          gatePass.type = show ? "text" : "password";
+          eyeLabel.textContent = show ? "Hide" : "Show";
+          eyeBtn.setAttribute("aria-label", show ? "Password chhupayein" : "Password dikhayein");
+          eyeBtn.setAttribute("aria-pressed", show ? "true" : "false");
+          eyeIcon.innerHTML = show ? EYE_SHUT : EYE_OPEN;
+          gatePass.focus();
+        }
+        eyeBtn.addEventListener("click", function () {
+          setPassVisible(gatePass.type === "password");
+        });
+
+        function sha256Hex(str) {
+          if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+            return window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
+              var bytes = new Uint8Array(buf);
+              var hex = "";
+              for (var i = 0; i < bytes.length; i++) hex += ("0" + bytes[i].toString(16)).slice(-2);
+              return hex;
+            });
+          }
+          return Promise.reject(new Error("no-subtle"));
+        }
+        function hashEquals(a, b) {
+          if (a.length !== b.length) return false;
+          var diff = 0;
+          for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+          return diff === 0;
+        }
+        function showGateError(msg) {
+          gateError.textContent = msg;
+          gateError.classList.add("show");
+        }
+
+        gateForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (unlocked) return;
+          var userVal = gateUser.value.trim();
+          var passVal = gatePass.value;
+          gateError.classList.remove("show");
+          if (!userVal || !passVal) {
+            showGateError("Username aur password dono likhein.");
+            return;
+          }
+          gateSubmit.disabled = true;
+          gateSubmit.textContent = "Check ho raha hai…";
+          sha256Hex(passVal).then(function (hex) {
+            var ok = (userVal === EXPECTED_USER) && hashEquals(hex, EXPECTED_HASH);
+            if (!ok) {
+              gateSubmit.disabled = false;
+              gateSubmit.textContent = "Daakhil hon";
+              showGateError("Username ya password ghalat hai. Dobara koshish karein.");
+              gatePass.value = "";
+              if (gatePass.type !== "password") setPassVisible(false);
+              gatePass.focus();
+              return;
+            }
+            unlocked = true;
+            gatePass.value = "";
+            gateEl.hidden = true;
+            bootChat();
+          }).catch(function () {
+            gateSubmit.disabled = false;
+            gateSubmit.textContent = "Daakhil hon";
+            showGateError("Check nahi ho saka — internet ya browser check karke dobara koshish karein.");
+          });
+        });
+        if (gateUser) gateUser.focus();
+        setConn("", "Pehle login karein");
+
+        /* ---------- firebase boot (login ke baad) ---------- */
+        function bootChat() {
+        if (typeof firebase === "undefined") {
+          setConn("err", "Connection nahi ban saka");
+          showBanner("Chat library load nahi ho saki. Internet check karke page refresh karein.");
+          return;
+        }
+        setConn("", "Connect ho raha hai…");
+
+        var firebaseConfig = {
+          apiKey: "AIzaSyB-tB_OXcMxXX5aiRYeIyad-Lu8XlnodGE",
+          authDomain: "zinc-anvil-458911-t5.firebaseapp.com",
+          projectId: "zinc-anvil-458911-t5",
+          storageBucket: "zinc-anvil-458911-t5.firebasestorage.app",
+          messagingSenderId: "627776534137",
+          appId: "1:627776534137:web:18e56c3a4316d29fe286a8"
+        };
+
+        try {
+          if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+          db = firebase.firestore();
+        } catch (err) {
+          setConn("err", "Connection nahi ban saka");
+          showBanner("Chat se connection nahi ban saka. Page refresh karke dobara koshish karein.");
+          return;
+        }
+
+        firebase.auth().signInAnonymously().then(function () {
+          setConn("on", "Realtime live — message bhejein");
+          ready = true;
+          input.disabled = false;
+          sendBtn.disabled = false;
+          input.focus();
+
+          /* ---------- REALTIME LISTENER (onSnapshot) ----------
+             Koi 30-second polling nahi hai. Listener sirf is board
+             (board = "friend") ke aakhri RECENT_LIMIT messages par hai —
+             naya message ya jawab aate hi Firestore khud foran snapshot
+             bhejta hai aur screen usi waqt update ho jati hai. */
+          var listenerStarted = false;
+          function handleSnap(snap) {
+            var messages = [];
+            snap.forEach(function (doc) {
+              var d = doc.data();
+              if (d.board !== BOARD) return;
+              d._id = doc.id;
+              messages.push(d);
+            });
+            messages.sort(function (a, b) {
+              var ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+              var tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+              return ta - tb;
+            });
+            renderAll(messages);
+          }
+          function handleErr(err) {
+            /* Board-filter wali query par index error aaye to baghair
+               filter wali realtime query par fallback (client par filter). */
+            if (!listenerStarted && err && err.code === "failed-precondition") {
+              startFallbackListener();
+              return;
+            }
+            setConn("err", "Messages load nahi ho rahe");
+            showBanner("Messages load karnay mein masla hai. Page refresh karein; masla barqarar rahe to board ke malik ko batayein.");
+          }
+          function startFallbackListener() {
+            db.collection(COLLECTION)
+              .orderBy("createdAt", "asc")
+              .limitToLast(RECENT_LIMIT)
+              .onSnapshot({ includeMetadataChanges: false }, handleSnap, handleErr);
+          }
+          db.collection(COLLECTION)
+            .where("board", "==", BOARD)
+            .orderBy("createdAt", "asc")
+            .limitToLast(RECENT_LIMIT)
+            .onSnapshot({ includeMetadataChanges: false }, function (snap) {
+              listenerStarted = true;
+              handleSnap(snap);
+            }, handleErr);
+        }).catch(function (err) {
+          setConn("err", "Sign-in nahi ho saka");
+          showBanner("Chat mein sign-in nahi ho saka. Internet check karke page refresh karein.");
+        });
+        }
+      })();
+    </script>
+  </body>
+</html>
